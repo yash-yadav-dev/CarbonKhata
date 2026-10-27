@@ -230,3 +230,9 @@ uploads/
 reports/
 *.db
 *.sqlite3
+
+# CarbonKhata runtime data
+uploads/
+reports/
+*.db
+*.sqlite3

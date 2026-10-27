@@ -1,0 +1,612 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CarbonKhata — Carbon Intelligence</title>
+<style>
+:root{--green:#176b45;--dark:#153326;--lime:#d9f477;--bg:#f4f7f2;--white:#fff;--ink:#1c3024;--muted:#7b887e;--line:#e5ebe3;--soft:#edf5e9;--orange:#e5a64b;--red:#d47762}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 Inter,"Segoe UI",Arial,sans-serif}
+button,input,select,textarea{font:inherit}
+button{cursor:pointer}
+.layout{min-height:100vh;display:grid;grid-template-columns:235px minmax(0,1fr)}
+aside{background:var(--dark);color:white;padding:27px 17px;display:flex;flex-direction:column}
+.brand{font-size:25px;font-weight:850;letter-spacing:-1.2px;padding:0 9px}
+.brand span{color:var(--lime)}
+.tagline{font-size:9px;letter-spacing:1.5px;color:#a9c1ae;margin:4px 9px 35px}
+.navheading{font-size:10px;color:#8da795;letter-spacing:1.6px;padding:0 12px;margin:17px 0 8px}
+.nav{padding:11px 12px;margin:3px 0;border-radius:9px;color:#c5d5c9;cursor:pointer;transition:.2s}
+.nav:hover,.nav.active{background:#2c4b39;color:white}
+.nav.active{box-shadow:inset 3px 0 var(--lime)}
+.asidebottom{margin-top:auto;border-top:1px solid #35503e;padding:17px 8px 0;font-size:11px;color:#b9cbbd}
+main{width:100%;max-width:1600px;margin:auto;padding:30px 34px 22px;min-width:0}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:25px}
+.eyebrow{font-size:10px;letter-spacing:1.8px;color:var(--green);font-weight:800;text-transform:uppercase}
+h1{font-size:29px;line-height:1.2;letter-spacing:-1.1px;margin:6px 0}
+.sub{color:var(--muted);font-size:12px}
+.topright{display:flex;align-items:center;gap:10px}
+.pill{display:inline-flex;align-items:center;gap:7px;border:1px solid #dce6d8;border-radius:30px;padding:8px 12px;background:white;font-size:11px;white-space:nowrap}
+.dot{width:7px;height:7px;border-radius:50%;background:#5ba96e}
+.notice{background:#fff9e9;border:1px solid #f0dfb2;border-radius:10px;padding:11px 14px;color:#795e24;font-size:11px;margin-bottom:20px}
+.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;margin-bottom:17px}
+.card{background:white;border:1px solid var(--line);border-radius:15px;padding:19px;min-width:0;box-shadow:0 2px 9px #243c1705}
+.metrichead{display:flex;justify-content:space-between;align-items:center;gap:6px;color:var(--muted);font-size:11px}
+.icon{width:32px;height:32px;display:grid;place-items:center;background:#edf5e9;color:var(--green);border-radius:10px;font-size:17px}
+.value{font-size:28px;font-weight:800;letter-spacing:-1px;margin:13px 0 1px;overflow-wrap:anywhere}
+.unit{font-size:11px;color:var(--muted)}
+.metricfoot{border-top:1px solid #edf0eb;margin-top:13px;padding-top:10px;font-size:10px;color:var(--green)}
+.sectionhead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px}
+.cardtitle{font-size:14px;font-weight:800;letter-spacing:-.2px}
+.carddesc{font-size:11px;color:var(--muted);margin-top:3px}
+.chartgrid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(260px,.85fr);gap:16px;margin-bottom:17px}
+.chartarea{width:100%;min-height:210px;position:relative}
+.chartarea svg{display:block;width:100%;height:auto;overflow:visible}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:10px;color:var(--muted);margin-top:12px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.swatch{width:9px;height:9px;border-radius:3px;display:inline-block}
+.donutwrap{display:flex;align-items:center;justify-content:center;gap:22px;min-height:210px}
+.donut{width:165px;height:165px;flex:0 0 165px}
+.donutlegend{display:grid;gap:17px;font-size:11px;min-width:0}
+.donutlegend strong{display:block;font-size:17px;color:var(--ink)}
+.donutlegend small{color:var(--muted)}
+.chartnote{margin-top:11px;padding-top:11px;border-top:1px solid var(--line);font-size:10px;color:var(--muted)}
+.trendcard{margin-bottom:17px}
+.trendlabel{background:#f5f3e9;color:#7b692f;padding:5px 8px;border-radius:6px;font-size:9px;white-space:nowrap}
+.lowergrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;margin-bottom:17px}
+.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+label{display:block;font-size:11px;font-weight:700;margin-bottom:6px}
+input,select,textarea{width:100%;border:1px solid #dce5d9;border-radius:8px;padding:10px;background:white;color:var(--ink);outline:none}
+input:focus,select:focus,textarea:focus{border-color:#70a780;box-shadow:0 0 0 3px #176b4510}
+.field small{display:block;color:var(--muted);font-size:10px;margin-top:5px}
+.btn{border:0;background:var(--green);color:white;padding:11px 14px;border-radius:8px;font-size:11px;font-weight:750}
+.btn:hover{filter:brightness(1.1)}
+.btn:disabled{opacity:.6;cursor:wait}
+.btnlight{background:var(--soft);color:var(--green);border:1px solid #dce9d7}
+.full{width:100%;margin-top:14px}
+.toast{font-size:11px;color:var(--green);margin-top:9px;overflow-wrap:anywhere}
+.results{display:none;margin-top:13px;padding:13px;background:#f1f7ec;border-radius:9px;border:1px solid #dcebcf}
+.results.show{display:block}
+.resultline{display:flex;justify-content:space-between;gap:10px;padding:5px 0;font-size:11px}
+.resultline strong{text-align:right;overflow-wrap:anywhere}
+.uploadbox{padding:17px 13px;background:#f8fbf6;border:1px dashed #bbcfb7;border-radius:10px;text-align:center;margin-bottom:12px}
+.uploadicon{font-size:27px;color:var(--green)}
+.docrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--line);font-size:11px}
+.docname{font-weight:750;overflow-wrap:anywhere}
+.docmeta{font-size:10px;color:var(--muted);overflow-wrap:anywhere}
+.status{display:inline-block;padding:4px 8px;border-radius:20px;background:#fbf2d9;color:#826a24;font-size:9px;white-space:nowrap}
+.status.approved{background:#e3f4e5;color:#27683b}
+.output{margin-top:14px}
+.output textarea{font-size:11px;line-height:1.6}
+.footer{padding:15px 0;text-align:center;color:var(--muted);font-size:10px}
+.hidden{display:none!important}
+.recommendation{border:1px solid var(--border);border-radius:12px;padding:12px;margin-top:10px}.recommendationhead{display:flex;gap:8px;align-items:flex-start;justify-content:space-between}.recommendation h3{font-size:13px;margin:0 0 5px;color:var(--ink)}.recommendation p{font-size:11px;line-height:1.55;color:var(--muted);margin:6px 0}.priority{font-size:9px;border-radius:20px;padding:4px 7px;background:#edf4e8;color:#28603c;white-space:nowrap}.progress-track{height:9px;background:#edf1e9;border-radius:99px;overflow:hidden;margin:10px 0}.progress-fill{height:100%;background:#176b45;border-radius:99px;transition:width .25s}.target-kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:12px}.target-kpi{background:#f6f8f3;border-radius:10px;padding:11px}.target-kpi span{display:block;color:var(--muted);font-size:10px}.target-kpi strong{display:block;margin-top:5px;font-size:15px;color:var(--ink);overflow-wrap:anywhere}.results.show{display:block}@media(min-width:1450px){main{padding:36px 45px}.card{padding:22px}.value{font-size:31px}}
+@media(max-width:1120px){main{padding:24px 20px}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.chartgrid{grid-template-columns:minmax(0,1fr)}.donutwrap{min-height:190px}}
+@media(max-width:700px){.layout{grid-template-columns:1fr}aside{padding:15px}.tagline,.asidebottom,.navheading{display:none}.brand{font-size:22px}.navs{display:flex;flex-wrap:wrap;gap:5px;margin-top:12px}.nav{font-size:11px;padding:8px;margin:0}.nav.active{box-shadow:inset 0 -2px var(--lime)}main{padding:17px 12px}.topbar{align-items:flex-start;flex-direction:column}h1{font-size:24px}.metrics{gap:9px}.card{padding:14px}.value{font-size:23px}.lowergrid{grid-template-columns:1fr}.donutwrap{gap:12px}.donut{width:135px;height:135px;flex-basis:135px}.donutlegend strong{font-size:15px}}
+</style>
+</head>
+<body>
+<div class="layout">
+<aside>
+ <div class="brand">carbon<span>khata</span></div>
+ <div class="tagline">CARBON INTELLIGENCE PLATFORM</div>
+ <div class="navs">
+  <div class="nav active" data-target="overview">▦ &nbsp; Overview</div>
+  <div class="nav" data-target="calculator">◈ &nbsp; Carbon calculator</div>
+  <div class="nav" data-target="documents">▤ &nbsp; Bill intelligence</div>
+  <div class="nav" data-target="recommendations">✦ &nbsp; Recommendations</div>
+  <div class="nav" data-target="targets">◎ &nbsp; Reduction target</div>
+ </div>
+ <div class="navheading">WORKSPACE</div>
+ <div class="nav">⌖ &nbsp; Punjab manufacturing</div>
+ <div class="nav">◎ &nbsp; Scope 1 + Scope 2</div>
+ <div class="asidebottom">CARBONKHATA MVP<br><br>Measure clearly. Reduce intelligently.<br><br><span style="color:#d9f477">●</span> Local demo environment</div>
+</aside>
+<main>
+<header class="topbar" id="overview">
+ <div><div class="eyebrow">Carbon accounting / Overview</div><h1>Your footprint, in focus.</h1><div class="sub">Understand energy emissions and track your operational carbon footprint.</div></div>
+ <div class="topright"><div class="pill"><span class="dot"></span> API connected</div><div class="pill" id="docCount">0 documents</div></div>
+</header>
+<div class="notice"><strong>Prototype disclaimer:</strong> Emission factors are illustrative demo values (electricity 0.71, diesel 2.68, LPG 3.00). They have not been validated for formal reporting. Outputs are estimates, not audit-ready results.</div>
+
+<section class="metrics">
+ <div class="card"><div class="metrichead">Total emissions <span class="icon">Σ</span></div><div class="value" id="total">—</div><div class="unit">kg CO₂e</div><div class="metricfoot">Scope 1 + Scope 2</div></div>
+ <div class="card"><div class="metrichead">Scope 1 <span class="icon">↗</span></div><div class="value" id="scope1">—</div><div class="unit">kg CO₂e · direct emissions</div><div class="metricfoot">Diesel + LPG consumption</div></div>
+ <div class="card"><div class="metrichead">Scope 2 <span class="icon">ϟ</span></div><div class="value" id="scope2">—</div><div class="unit">kg CO₂e · purchased energy</div><div class="metricfoot">Electricity consumption</div></div>
+ <div class="card"><div class="metrichead">Product intensity <span class="icon">◎</span></div><div class="value" id="intensity">—</div><div class="unit">kg CO₂e per production unit</div><div class="metricfoot">Emissions ÷ production units</div></div>
+</section>
+
+<section class="chartgrid">
+ <div class="card">
+  <div class="sectionhead"><div><div class="cardtitle">Emissions by source</div><div class="carddesc">Compare the estimated contribution of each energy source.</div></div><span class="pill">Live calculation</span></div>
+  <div class="chartarea" id="barChart" aria-label="Bar chart of emissions by source"></div>
+  <div class="legend"><span><i class="swatch" style="background:#176b45"></i>Diesel</span><span><i class="swatch" style="background:#87b99b"></i>LPG</span><span><i class="swatch" style="background:#c3d96b"></i>Electricity</span></div>
+  <div class="chartnote">Bar values update when you calculate new consumption figures. Units: kg CO₂e.</div>
+ </div>
+ <div class="card">
+  <div class="sectionhead"><div><div class="cardtitle">Scope contribution</div><div class="carddesc">Direct versus purchased-energy emissions.</div></div></div>
+  <div class="donutwrap"><div id="donutChart"></div><div class="donutlegend">
+   <div><span><i class="swatch" style="background:#176b45"></i> Scope 1</span><strong id="donutS1">—</strong><small id="donutP1">Direct emissions</small></div>
+   <div><span><i class="swatch" style="background:#c3d96b"></i> Scope 2</span><strong id="donutS2">—</strong><small id="donutP2">Purchased electricity</small></div>
+  </div></div>
+  <div class="chartnote">Share of the current calculated total. The chart updates with your inputs.</div>
+ </div>
+</section>
+
+<section class="card trendcard">
+ <div class="sectionhead"><div><div class="cardtitle">Monthly emissions outlook</div><div class="carddesc">A visual placeholder for future period-by-period tracking.</div></div><span class="trendlabel">ILLUSTRATIVE · NOT ACTUAL HISTORY</span></div>
+ <div id="trendChart" class="chartarea"></div>
+ <div class="chartnote">This illustration is not measured historical data. Monthly trend tracking requires actual dated consumption records.</div>
+</section>
+
+<section class="lowergrid">
+ <div class="card" id="calculator">
+  <div class="sectionhead"><div><div class="cardtitle">Carbon calculator</div><div class="carddesc">Estimate operational emissions from consumption.</div></div><span class="icon">⌘</span></div>
+  <form id="calcForm">
+   <div class="formgrid">
+    <div class="field"><label for="electricity">Electricity (kWh)</label><input id="electricity" type="number" min="0" step="any" value="1250" required></div>
+    <div class="field"><label for="diesel">Diesel (litres)</label><input id="diesel" type="number" min="0" step="any" value="100" required></div>
+    <div class="field"><label for="lpg">LPG (kg)</label><input id="lpg" type="number" min="0" step="any" value="25" required></div>
+    <div class="field"><label for="production">Production units</label><input id="production" type="number" min="0.000001" step="any" value="500" required><small>Must be greater than zero.</small></div>
+   </div>
+   <button class="btn full" id="calcButton" type="submit">Calculate emissions →</button>
+  </form>
+  <div id="calcMessage" class="toast" role="status"></div>
+  <div id="calcResults" class="results">
+   <div class="resultline"><span>Scope 1</span><strong id="rScope1"></strong></div>
+   <div class="resultline"><span>Scope 2</span><strong id="rScope2"></strong></div>
+   <div class="resultline"><span>Total emissions</span><strong id="rTotal"></strong></div>
+   <div class="resultline"><span>Product intensity</span><strong id="rIntensity"></strong></div>
+   <button class="btn btnlight full" id="downloadReport" type="button">Download summary report ↓</button>
+  </div>
+ </div>
+
+ <div class="card" id="documents">
+  <div class="sectionhead"><div><div class="cardtitle">Bill intelligence</div><div class="carddesc">Upload invoices and review extracted text.</div></div><span class="icon">⇧</span></div>
+  <form id="uploadForm">
+   <div class="uploadbox"><div class="uploadicon">⇧</div><strong>Upload a bill or invoice</strong><div class="sub">PDF, JPG, JPEG, PNG · max 10 MB</div>
+    <input id="billFile" type="file" accept=".pdf,.jpg,.jpeg,.png" required style="margin-top:12px">
+    <div style="text-align:left;margin-top:12px"><label for="docType">Document type</label><select id="docType"><option value="electricity_bill">Electricity bill</option><option value="diesel_invoice">Diesel invoice</option><option value="lpg_invoice">LPG invoice</option><option value="other">Other</option></select></div>
+    <button class="btn full" id="uploadButton" type="submit">Upload document</button>
+   </div>
+  </form>
+  <div id="uploadMessage" class="toast" role="status"></div>
+  <div class="sectionhead" style="margin-top:20px"><div class="cardtitle">Recent documents</div><button class="btn btnlight" id="refreshDocs" type="button" style="padding:7px 10px">Refresh</button></div>
+  <div id="docList"><div class="sub">Loading documents…</div></div>
+ </div>
+</section>
+
+
+<section class="lowergrid" style="margin-top:18px" id="climateActions">
+ <div class="card" id="recommendations">
+  <div class="sectionhead"><div><div class="cardtitle">Smart reduction recommendations</div><div class="carddesc">Prioritised actions based on your latest calculated emissions.</div></div><span class="icon">✦</span></div>
+  <div id="recommendationSummary" class="toast">Calculate emissions to generate recommendations for your consumption mix.</div>
+  <div id="recommendationList" class="results"></div>
+ </div>
+ <div class="card" id="targets">
+  <div class="sectionhead"><div><div class="cardtitle">Carbon reduction target</div><div class="carddesc">Save a baseline, target reduction, and deadline. Your target persists in the local database.</div></div><span class="icon">◎</span></div>
+  <form id="targetForm">
+   <div class="formgrid">
+    <div class="field"><label for="targetBaseline">Baseline emissions (kg CO₂e)</label><input id="targetBaseline" type="number" min="0.001" step="any" placeholder="Use baseline button below" required></div>
+    <div class="field"><label for="targetPercent">Reduction target (%)</label><input id="targetPercent" type="number" min="1" max="100" step="1" value="20" required></div>
+    <div class="field" style="grid-column:1/-1"><label for="targetDeadline">Target deadline</label><input id="targetDeadline" type="date" required></div>
+   </div>
+   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn" type="submit" id="saveTargetButton">Save target</button><button class="btn btnlight" type="button" id="useBaselineButton">Use current emissions as baseline</button></div>
+  </form>
+  <div id="targetMessage" class="toast" role="status"></div>
+  <div id="targetProgress" class="results"><div class="sub">No target saved yet.</div></div>
+ </div>
+</section>
+
+<section class="card" id="reviewPanel">
+ <div class="sectionhead"><div><div class="cardtitle">Extraction review</div><div class="carddesc">Select a document, extract its text, correct any errors, then save or approve.</div></div><span id="extractStatus" class="status">Not selected</span></div>
+ <label for="docId">Document ID</label><input id="docId" placeholder="Select a document from Recent documents">
+ <button class="btn full" id="extractButton" type="button">Extract document text</button>
+ <div id="extractMessage" class="toast" role="status"></div>
+ <div id="extractOutput" class="output hidden">
+  <label for="extractedText">Extracted text — editable</label>
+  <textarea id="extractedText" rows="7" maxlength="50000"></textarea>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px"><button class="btn" id="saveReview" type="button">Save corrections</button><button class="btn btnlight" id="approveReview" type="button">Approve reviewed text</button><button class="btn btnlight" id="useBillValue" type="button">Use approved bill value in calculator</button></div>
+ </div>
+</section>
+<div class="footer">CarbonKhata · Carbon intelligence for manufacturing MSMEs · Prototype dashboard</div>
+
+<section id="trendSection" style="margin:24px 0;padding:24px;border:1px solid #dbe4e0;border-radius:16px;background:#ffffff;">
+  <h2 style="margin:0 0 6px;">Emissions Trend</h2>
+  <p style="margin:0 0 20px;color:#64748b;">Compare total emissions across your latest saved calculations.</p>
+  <div style="height:260px;position:relative;">
+    <canvas id="emissionsTrendChart" style="width:100%;height:260px;display:block;"></canvas>
+  </div>
+  <p id="trendMessage" style="color:#64748b;margin-bottom:0;">Loading trend...</p>
+</section>
+
+<section id="historySection" style="margin:24px 0;padding:24px;border:1px solid #dbe4e0;border-radius:16px;background:#ffffff;">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+    <div>
+      <h2 style="margin:0 0 6px;">Carbon Emissions History</h2>
+      <p style="margin:0;color:#64748b;">Your latest saved emissions calculations.</p>
+    </div>
+    <button id="refreshHistory" type="button" style="padding:10px 16px;border:0;border-radius:8px;cursor:pointer;">Refresh History</button>
+  </div>
+  <p id="historyMessage" style="color:#64748b;">Loading history...</p>
+  <div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;text-align:left;min-width:650px;">
+      <thead>
+        <tr style="border-bottom:1px solid #dbe4e0;">
+          <th style="padding:12px 8px;">Date</th>
+          <th style="padding:12px 8px;">Electricity (kWh)</th>
+          <th style="padding:12px 8px;">Diesel (L)</th>
+          <th style="padding:12px 8px;">LPG (kg)</th>
+          <th style="padding:12px 8px;">Total Emissions (kg CO?e)</th>
+        </tr>
+      </thead>
+      <tbody id="historyTableBody"></tbody>
+    </table>
+  </div>
+</section>
+
+</main>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const fmt=n=>Number(n).toLocaleString("en-IN",{maximumFractionDigits:3});
+let lastCalc=null;
+
+function escapeHtml(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+async function api(url,options={}){
+ const r=await fetch(url,options);
+ const d=await r.json().catch(()=>({detail:"Unexpected server response"}));
+ if(!r.ok)throw new Error(d.detail||`Request failed (${r.status})`);
+ return d;
+}
+document.querySelectorAll(".nav[data-target]").forEach(n=>n.addEventListener("click",()=>{
+ document.querySelectorAll(".nav[data-target]").forEach(x=>x.classList.remove("active"));
+ n.classList.add("active");
+ $(n.dataset.target).scrollIntoView({behavior:"smooth",block:"start"});
+}));
+
+function renderBars(d){
+ const vals=[
+  {name:"Diesel",value:Number($("diesel").value)*2.68,color:"#176b45"},
+  {name:"LPG",value:Number($("lpg").value)*3,color:"#87b99b"},
+  {name:"Electricity",value:Number($("electricity").value)*.71,color:"#c3d96b"}
+ ];
+ const W=560,H=230,L=45,R=15,T=15,B=42,plotW=W-L-R,plotH=H-T-B;
+ const max=Math.max(...vals.map(x=>x.value),1);
+ const rounded=Math.ceil(max/4/10)*10||1;
+ const top=Math.max(rounded*4,max*1.1);
+ const ticks=[0,top/4,top/2,top*3/4,top];
+ let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Emissions by energy source bar chart">`;
+ ticks.forEach(t=>{const y=T+plotH-t/top*plotH;s+=`<line x1="${L}" y1="${y}" x2="${W-R}" y2="${y}" stroke="#e8eee5" stroke-dasharray="3 4"/><text x="${L-8}" y="${y+4}" fill="#879187" font-size="10" text-anchor="end">${fmt(t)}</text>`;});
+ const gap=plotW/3,bw=Math.min(66,gap*.46);
+ vals.forEach((v,i)=>{const x=L+gap*i+(gap-bw)/2,h=v.value/top*plotH,y=T+plotH-h;s+=`<rect x="${x}" y="${y}" width="${bw}" height="${Math.max(1,h)}" rx="6" fill="${v.color}"><title>${v.name}: ${fmt(v.value)} kg CO2e</title></rect><text x="${x+bw/2}" y="${Math.max(T+11,y-7)}" fill="#34493a" font-size="10" font-weight="700" text-anchor="middle">${fmt(v.value)}</text><text x="${x+bw/2}" y="${H-15}" fill="#758177" font-size="11" text-anchor="middle">${v.name}</text>`;});
+ $("barChart").innerHTML=s+"</svg>";
+}
+function renderDonut(d){
+ const a=Math.max(0,d.scope_1_kg_co2e),b=Math.max(0,d.scope_2_kg_co2e),total=a+b;
+ const pct=total>0?a/total*100:0,circ=2*Math.PI*53;
+ const dash=circ*pct/100;
+ $("donutChart").innerHTML=`<svg class="donut" viewBox="0 0 140 140" role="img" aria-label="Scope 1 and Scope 2 emissions donut chart"><circle cx="70" cy="70" r="53" fill="none" stroke="#edf2e9" stroke-width="17"/><circle cx="70" cy="70" r="53" fill="none" stroke="#c3d96b" stroke-width="17" transform="rotate(-90 70 70)" stroke-dasharray="${circ-dash} ${circ}" stroke-dashoffset="${-dash}" stroke-linecap="butt"/><circle cx="70" cy="70" r="53" fill="none" stroke="#176b45" stroke-width="17" transform="rotate(-90 70 70)" stroke-dasharray="${dash} ${circ}" stroke-linecap="butt"/><text x="70" y="66" text-anchor="middle" font-size="19" font-weight="800" fill="#1c3024">${total?fmt(total):"0"}</text><text x="70" y="82" text-anchor="middle" font-size="9" fill="#7b887e">kg CO₂e</text></svg>`;
+ $("donutS1").textContent=fmt(a)+" kg";$("donutS2").textContent=fmt(b)+" kg";
+ $("donutP1").textContent=(total?pct:0).toFixed(1)+"% of total";
+ $("donutP2").textContent=(total?100-pct:0).toFixed(1)+"% of total";
+}
+
+async function loadRecommendations(inputs){
+ const box=$("recommendationList"),summary=$("recommendationSummary");
+ try{
+  const d=await api("/recommendations",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(inputs)});
+  summary.textContent=`Calculated footprint: ${fmt(d.total_kg_co2e)} kg CO₂e. Highest-impact sources are listed first.`;
+  box.innerHTML=d.recommendations.map(r=>`<article class="recommendation"><div class="recommendationhead"><h3>${escapeHtml(r.title)}</h3><span class="priority">Priority ${r.priority}</span></div><p><strong>${escapeHtml(r.source)}</strong>${r.share_percent===undefined?"":` · ${fmt(r.share_percent)}% of emissions`}</p><p>${escapeHtml(r.reason)}</p><p><strong>Next step:</strong> ${escapeHtml(r.action)}</p></article>`).join("")+`<p class="chartnote">${escapeHtml(d.note)}</p>`;
+ }catch(err){summary.textContent="Could not load recommendations: "+err.message;}
+}
+function renderTarget(d){
+ const box=$("targetProgress");
+ if(!d.configured){box.innerHTML='<div class="sub">No target saved yet. Save one above to start tracking.</div>';return;}
+ $("targetBaseline").value=d.baseline_kg_co2e;$("targetPercent").value=d.reduction_percent;$("targetDeadline").value=d.deadline;
+ const progress=d.progress_percent;
+ box.innerHTML=`<div class="target-kpis"><div class="target-kpi"><span>Baseline</span><strong>${fmt(d.baseline_kg_co2e)} kg</strong></div><div class="target-kpi"><span>Target emissions</span><strong>${fmt(d.target_kg_co2e)} kg</strong></div><div class="target-kpi"><span>Current emissions</span><strong>${d.current_kg_co2e===null?"Run calculator":fmt(d.current_kg_co2e)+" kg"}</strong></div><div class="target-kpi"><span>Deadline</span><strong>${escapeHtml(d.deadline)}</strong></div></div><div style="margin-top:14px;display:flex;justify-content:space-between;gap:8px;font-size:11px"><strong>Reduction progress</strong><strong>${progress===null?"Awaiting calculation":fmt(progress)+"%"}</strong></div><div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress===null?0:progress}"><div class="progress-fill" style="width:${progress===null?0:progress}%"></div></div><div class="sub">${d.target_reached===true?"🎉 Target reached based on the current calculation.":d.current_kg_co2e===null?"Run the calculator to compare current emissions with this target.":`Reduction achieved from baseline: ${fmt(d.reduction_achieved_percent)}%.`}</div>`;
+}
+async function loadTargetProgress(current){
+ try{const q=current===undefined?"":"?current_kg_co2e="+encodeURIComponent(current);const d=await api("/targets"+q);renderTarget(d);}catch(err){$("targetMessage").textContent="Could not load target: "+err.message;}
+}
+$("useBaselineButton").addEventListener("click",()=>{
+ if(!lastCalc){$("targetMessage").textContent="Calculate emissions first, then use that result as the baseline.";return;}
+ $("targetBaseline").value=lastCalc.total_kg_co2e;
+ $("targetMessage").textContent="Baseline filled from the latest calculation. Save the target to keep it.";
+});
+$("targetForm").addEventListener("submit",async e=>{
+ e.preventDefault();
+ const baseline=Number($("targetBaseline").value),percent=Number($("targetPercent").value),deadline=$("targetDeadline").value;
+ if(!Number.isFinite(baseline)||baseline<=0||!Number.isFinite(percent)||percent<=0||percent>100||!deadline){$("targetMessage").textContent="Enter a positive baseline, a reduction from 1–100%, and a deadline.";return;}
+ $("saveTargetButton").disabled=true;$("targetMessage").textContent="Saving target…";
+ try{const d=await api("/targets",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({baseline_kg_co2e:baseline,reduction_percent:percent,deadline})});renderTarget(d);if(lastCalc)await loadTargetProgress(lastCalc.total_kg_co2e);$("targetMessage").textContent="Target saved. It will remain available after the backend restarts.";}
+ catch(err){$("targetMessage").textContent="Could not save target: "+err.message;}
+ finally{$("saveTargetButton").disabled=false;}
+});
+
+function renderTrend(){
+ const vals=[78,68,83,61,72,56,66,49,58,43,51,37];
+ const W=850,H=170,L=38,R=10,T=12,B=30,pw=W-L-R,ph=H-T-B,max=100;
+ let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Illustrative monthly emissions trend, not real historical data">`;
+ [0,25,50,75,100].forEach(v=>{const y=T+ph-v/max*ph;s+=`<line x1="${L}" y1="${y}" x2="${W-R}" y2="${y}" stroke="#e7ede4" stroke-dasharray="3 4"/><text x="${L-7}" y="${y+4}" fill="#8a958b" font-size="10" text-anchor="end">${v}</text>`;});
+ const pts=vals.map((v,i)=>[L+i*pw/(vals.length-1),T+ph-v/max*ph]);
+ s+=`<path d="M ${pts.map(p=>p.join(" ")).join(" L ")} L ${W-R} ${T+ph} L ${L} ${T+ph} Z" fill="#dcebd3" opacity=".6"/>`;
+ s+=`<path d="M ${pts.map(p=>p.join(" ")).join(" L ")}" fill="none" stroke="#176b45" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>`;
+ const months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+ pts.forEach((p,i)=>{s+=`<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="#176b45"><title>${months[i]}: illustrative index ${vals[i]}</title></circle><text x="${p[0]}" y="${H-9}" fill="#758177" font-size="10" text-anchor="middle">${months[i]}</text>`;});
+ $("trendChart").innerHTML=s+"</svg>";
+}
+function updateDashboard(d){
+ $("total").textContent=fmt(d.total_kg_co2e);$("scope1").textContent=fmt(d.scope_1_kg_co2e);$("scope2").textContent=fmt(d.scope_2_kg_co2e);$("intensity").textContent=fmt(d.intensity_kg_co2e_per_unit);
+ renderBars(d);renderDonut(d);
+}
+$("calcForm").addEventListener("submit",async e=>{
+ e.preventDefault();
+ const data={electricity_kwh:Number($("electricity").value),diesel_litres:Number($("diesel").value),lpg_kg:Number($("lpg").value),production_units:Number($("production").value)};
+ if(Object.values(data).some(v=>!Number.isFinite(v)||v<0)||data.production_units<=0){$("calcMessage").textContent="Enter valid non-negative consumption values and production greater than zero.";return;}
+ $("calcButton").disabled=true;$("calcMessage").textContent="Calculating…";
+ try{
+  const d=await api("/calculate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});
+  lastCalc={...d,inputs:data,createdAt:new Date().toISOString()};updateDashboard(d);
+  $("rScope1").textContent=fmt(d.scope_1_kg_co2e)+" kg CO₂e";
+  $("rScope2").textContent=fmt(d.scope_2_kg_co2e)+" kg CO₂e";
+  $("rTotal").textContent=fmt(d.total_kg_co2e)+" kg CO₂e ("+fmt(d.total_tonnes_co2e)+" tonnes)";
+  $("rIntensity").textContent=fmt(d.intensity_kg_co2e_per_unit)+" kg CO₂e/unit";
+  $("calcResults").classList.add("show");$("calcMessage").textContent="Calculation complete. Demo factors only; verify before reporting.";
+  await Promise.allSettled([loadRecommendations(data),loadTargetProgress(d.total_kg_co2e)]);
+ }catch(err){$("calcMessage").textContent="Calculation failed: "+err.message;}
+ finally{$("calcButton").disabled=false;}
+});
+$("downloadReport").addEventListener("click", async () => {
+    if (!lastCalc) {
+        $("calcMessage").textContent = "Calculate emissions before downloading your report.";
+        return;
+    }
+
+    const button = $("downloadReport");
+    button.disabled = true;
+    button.textContent = "Generating PDF...";
+
+    try {
+        const response = await fetch("/reports/carbon-pdf", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(lastCalc.inputs)
+        });
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.detail || "Could not generate PDF.");
+        }
+
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+
+        link.href = url;
+        link.download = "CarbonKhata_Report.pdf";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        $("calcMessage").textContent = "Your CarbonKhata PDF report is ready.";
+    } catch (error) {
+        $("calcMessage").textContent = "Report failed: " + error.message;
+    } finally {
+        button.disabled = false;
+        button.textContent = "Download summary report ?";
+    }
+});
+async function loadDocuments(){
+ try{
+  const d=await api("/documents"),docs=d.documents||[];
+  $("docCount").textContent=docs.length+" document"+(docs.length===1?"":"s");
+  if(!docs.length){$("docList").innerHTML='<div class="sub">No documents uploaded yet.</div>';return;}
+  $("docList").innerHTML=docs.map(x=>`<div class="docrow"><div><div class="docname">${escapeHtml(x.original_filename)}</div><div class="docmeta">${escapeHtml(x.document_type)} · ${fmt(x.file_size)} bytes</div><div class="docmeta">${escapeHtml(x.id)}</div></div><div style="text-align:right"><span class="status ${x.status==="approved"?"approved":""}">${escapeHtml(x.status)}</span><br><button class="btn btnlight chooseDoc" data-id="${escapeHtml(x.id)}" style="padding:6px 9px;margin-top:7px">Select</button></div></div>`).join("");
+  document.querySelectorAll(".chooseDoc").forEach(b=>b.addEventListener("click",()=>{$("docId").value=b.dataset.id;$("extractOutput").classList.add("hidden");$("extractMessage").textContent="Document selected. Extract its text to review."; $("reviewPanel").scrollIntoView({behavior:"smooth"});}));
+ }catch(err){$("docList").textContent="Could not load documents: "+err.message;$("docCount").textContent="API issue";}
+}
+$("refreshDocs").addEventListener("click",loadDocuments);
+$("uploadForm").addEventListener("submit",async e=>{
+ e.preventDefault();const file=$("billFile").files[0];if(!file)return;
+ if(file.size>10*1024*1024){$("uploadMessage").textContent="File exceeds the 10 MB limit.";return;}
+ const fd=new FormData();fd.append("file",file);fd.append("document_type",$("docType").value);
+ $("uploadButton").disabled=true;$("uploadMessage").textContent="Uploading…";
+ try{const d=await api("/documents/upload",{method:"POST",body:fd});$("docId").value=d.id;$("uploadMessage").textContent="Upload successful. Select Extract document text below.";await loadDocuments();}
+ catch(err){$("uploadMessage").textContent="Upload failed: "+err.message;}
+ finally{$("uploadButton").disabled=false;}
+});
+$("extractButton").addEventListener("click",async()=>{
+ const id=$("docId").value.trim();if(!id){$("extractMessage").textContent="Select a document first.";return;}
+ $("extractButton").disabled=true;$("extractMessage").textContent="Extracting text…";
+ try{
+  const d=await api(`/documents/${encodeURIComponent(id)}/extract`,{method:"POST"});
+  $("extractedText").value=d.extracted_text||"";$("extractOutput").classList.remove("hidden");
+  $("extractStatus").textContent=d.review_status;$("extractMessage").textContent=`Extracted ${d.characters_extracted} characters using ${d.extraction_method}.`;
+ }catch(err){$("extractMessage").textContent="Extraction failed: "+err.message;}
+ finally{$("extractButton").disabled=false;}
+});
+async function review(approve){
+ const id=$("docId").value.trim(),text=$("extractedText").value;
+ if(!id||!text.trim()){$("extractMessage").textContent="Select a document and ensure the text is not empty.";return;}
+ try{
+  const d=await api(`/documents/${encodeURIComponent(id)}/review`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({corrected_text:text,approve})});
+  $("extractStatus").textContent=d.review_status;$("extractStatus").className="status "+(approve?"approved":"");
+  $("extractMessage").textContent=d.message;await loadDocuments();
+ }catch(err){$("extractMessage").textContent="Review failed: "+err.message;}
+}
+$("saveReview").addEventListener("click",()=>review(false));
+$("approveReview").addEventListener("click",()=>review(true));
+
+$("useBillValue").addEventListener("click", async()=>{
+ const id=$("docId").value.trim();
+ if(!id){$("extractMessage").textContent="Select a document first.";return;}
+ const button=$("useBillValue");
+ button.disabled=true;
+ $("extractMessage").textContent="Checking approved bill for a consumption value…";
+ try{
+  const d=await api(`/documents/${encodeURIComponent(id)}/consumption`);
+  const inputMap={
+   electricity_kwh:"electricity",
+   diesel_litres:"diesel",
+   lpg_kg:"lpg"
+  };
+  const inputId=inputMap[d.field];
+  if(!inputId)throw new Error("This bill value is not supported by the calculator.");
+  $(inputId).value=d.value;
+  $("calcMessage").textContent=`Filled ${inputId} with ${fmt(d.value)} ${d.unit} from the approved bill. Verify the value, then calculate.`;
+  $("extractMessage").textContent=`Found ${fmt(d.value)} ${d.unit} in: “${d.matched_text}”. Verify it in the calculator before use.`;
+  $("calculator").scrollIntoView({behavior:"smooth",block:"start"});
+ }catch(err){
+  $("extractMessage").textContent="Could not use bill value: "+err.message;
+ }finally{
+  button.disabled=false;
+ }
+});
+renderTrend();
+(async()=>{await Promise.allSettled([loadDocuments(),loadTargetProgress()]);$("calcForm").requestSubmit();})();
+
+
+function drawEmissionsTrend(history) {
+  const canvas = $("emissionsTrendChart");
+  const message = $("trendMessage");
+  const ctx = canvas.getContext("2d");
+
+  const entries = [...history].reverse();
+  const width = canvas.clientWidth || 600;
+  const height = 260;
+  const ratio = window.devicePixelRatio || 1;
+
+  canvas.width = width * ratio;
+  canvas.height = height * ratio;
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  ctx.clearRect(0, 0, width, height);
+
+  if (!entries.length) {
+    message.textContent = "Calculate emissions to start seeing your trend.";
+    return;
+  }
+
+  const values = entries.map(item => Number(item.total_kg_co2e) || 0);
+  const maxValue = Math.max(...values, 1);
+  const left = 48, right = 16, top = 20, bottom = 42;
+  const chartWidth = width - left - right;
+  const chartHeight = height - top - bottom;
+
+  ctx.font = "12px Arial";
+  ctx.fillStyle = "#64748b";
+  ctx.strokeStyle = "#e2e8f0";
+  ctx.lineWidth = 1;
+
+  for (let i = 0; i <= 4; i++) {
+    const y = top + chartHeight * i / 4;
+    const value = maxValue * (4 - i) / 4;
+    ctx.beginPath();
+    ctx.moveTo(left, y);
+    ctx.lineTo(width - right, y);
+    ctx.stroke();
+    ctx.fillText(value.toLocaleString("en-IN", {maximumFractionDigits: 1}), 2, y + 4);
+  }
+
+  const points = values.map((value, i) => ({
+    x: entries.length === 1
+      ? left + chartWidth / 2
+      : left + chartWidth * i / (entries.length - 1),
+    y: top + chartHeight * (1 - value / maxValue),
+    value,
+    date: entries[i].calculated_at
+  }));
+
+  ctx.strokeStyle = "#159570";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  points.forEach((point, i) => {
+    if (i === 0) ctx.moveTo(point.x, point.y);
+    else ctx.lineTo(point.x, point.y);
+  });
+  ctx.stroke();
+
+  points.forEach((point, i) => {
+    ctx.fillStyle = "#159570";
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (entries.length <= 8 || i === 0 || i === points.length - 1) {
+      const date = new Date(point.date);
+      const label = Number.isNaN(date.getTime())
+        ? ""
+        : date.toLocaleDateString("en-IN", {day: "2-digit", month: "short"});
+      ctx.fillStyle = "#64748b";
+      ctx.textAlign = "center";
+      ctx.fillText(label, point.x, height - 16);
+    }
+  });
+
+  ctx.textAlign = "start";
+  message.textContent =
+    `Latest: ${values[values.length - 1].toLocaleString("en-IN", {maximumFractionDigits: 3})} kg CO?e across ${entries.length} calculation(s).`;
+}
+
+
+window.addEventListener("resize", () => {
+  api("/history?limit=20")
+    .then(result => drawEmissionsTrend(result.history || []))
+    .catch(() => {});
+});
+
+async function loadCalculationHistory() {
+  const message = $("historyMessage");
+  const tbody = $("historyTableBody");
+
+  message.textContent = "Loading history...";
+  tbody.replaceChildren();
+
+  try {
+    const result = await api("/history?limit=20");
+
+    drawEmissionsTrend(result.history || []);
+
+    if (!result.history || result.history.length === 0) {
+      message.textContent = "No calculations saved yet. Calculate your emissions to start building your history.";
+      return;
+    }
+
+    message.textContent = `Showing ${result.history.length} recent calculation(s).`;
+
+    result.history.forEach(item => {
+      const row = document.createElement("tr");
+      row.style.borderBottom = "1px solid #e2e8f0";
+
+      const date = new Date(item.calculated_at);
+      const values = [
+        Number.isNaN(date.getTime()) ? item.calculated_at : date.toLocaleString("en-IN"),
+        Number(item.electricity_kwh).toLocaleString("en-IN"),
+        Number(item.diesel_litres).toLocaleString("en-IN"),
+        Number(item.lpg_kg).toLocaleString("en-IN"),
+        Number(item.total_kg_co2e).toLocaleString("en-IN", { maximumFractionDigits: 3 })
+      ];
+
+      values.forEach(value => {
+        const cell = document.createElement("td");
+        cell.style.padding = "12px 8px";
+        cell.textContent = value;
+        row.appendChild(cell);
+      });
+
+      tbody.appendChild(row);
+    });
+  } catch (error) {
+    message.textContent = "Could not load history: " + error.message;
+  }
+}
+
+$("refreshHistory").addEventListener("click", loadCalculationHistory);
+loadCalculationHistory();
+
+</script>
+</body>
+</html>
