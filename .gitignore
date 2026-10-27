@@ -218,3 +218,15 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# CarbonKhata local files
+uploads/
+reports/
+*.db
+*.sqlite3
+
+# CarbonKhata local files
+uploads/
+reports/
+*.db
+*.sqlite3
