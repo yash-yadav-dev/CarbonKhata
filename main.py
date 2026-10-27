@@ -198,6 +198,152 @@ def get_calculation_history(limit: int = 20):
     return {"history": [dict(row) for row in rows]}
 
 
+# -------------------- SUSTAINABILITY INSIGHTS --------------------
+
+@app.get("/insights")
+def get_sustainability_insights():
+    with get_connection() as connection:
+        rows = connection.execute("""
+            SELECT *
+            FROM calculation_history
+            ORDER BY id DESC
+            LIMIT 10
+        """).fetchall()
+
+        target = connection.execute("""
+            SELECT *
+            FROM reduction_targets
+            WHERE id = 1
+        """).fetchone()
+
+    history = [dict(row) for row in rows]
+    insights = []
+
+    if not history:
+        return {
+            "status": "no_data",
+            "message": "Calculate your emissions to unlock sustainability insights.",
+            "insights": [],
+            "trend": None,
+            "target": target_progress(target)
+        }
+
+    latest = history[0]
+    latest_total = float(latest["total_kg_co2e"])
+
+    sources = {
+        "Electricity": float(latest["scope_2_kg_co2e"]),
+        "Diesel": float(latest["diesel_litres"]) * FACTORS["diesel"],
+        "LPG": float(latest["lpg_kg"]) * FACTORS["lpg"]
+    }
+
+    largest_source = max(sources, key=sources.get)
+    source_total = sum(sources.values())
+    source_share = (
+        sources[largest_source] / source_total * 100
+        if source_total > 0 else 0
+    )
+
+    insights.append({
+        "type": "largest_source",
+        "title": "Largest emissions source",
+        "message": (
+            f"{largest_source} contributes {source_share:.1f}% "
+            "of emissions in your latest calculation."
+        ),
+        "value": largest_source
+    })
+
+    trend = None
+
+    if len(history) >= 2:
+        latest_five = history[:5]
+        previous_five = history[5:10]
+
+        recent_average = sum(
+            float(item["total_kg_co2e"]) for item in latest_five
+        ) / len(latest_five)
+
+        if previous_five:
+            previous_average = sum(
+                float(item["total_kg_co2e"]) for item in previous_five
+            ) / len(previous_five)
+        else:
+            previous_average = float(history[1]["total_kg_co2e"])
+
+        change = recent_average - previous_average
+        change_percent = (
+            change / previous_average * 100
+            if previous_average > 0 else None
+        )
+
+        if change < -0.001:
+            direction = "decreasing"
+            insights.append({
+                "type": "positive",
+                "title": "Emissions are decreasing",
+                "message": "Your recent average emissions are lower than the comparison period."
+            })
+        elif change > 0.001:
+            direction = "increasing"
+            insights.append({
+                "type": "warning",
+                "title": "Emissions are increasing",
+                "message": "Review energy use and fuel consumption to identify reduction opportunities."
+            })
+        else:
+            direction = "stable"
+            insights.append({
+                "type": "neutral",
+                "title": "Emissions are stable",
+                "message": "Your recent average is approximately unchanged."
+            })
+
+        trend = {
+            "direction": direction,
+            "recent_average_kg_co2e": round(recent_average, 3),
+            "previous_average_kg_co2e": round(previous_average, 3),
+            "change_kg_co2e": round(change, 3),
+            "change_percent": (
+                round(change_percent, 2)
+                if change_percent is not None else None
+            ),
+            "comparison_basis": (
+                "latest five vs previous five calculations"
+                if len(history) >= 6
+                else "latest calculation vs previous calculation"
+            )
+        }
+    else:
+        insights.append({
+            "type": "info",
+            "title": "Build your emissions history",
+            "message": "Complete more calculations to identify a meaningful emissions trend."
+        })
+
+    progress = target_progress(target, latest_total)
+
+    if progress.get("configured"):
+        insights.append({
+            "type": "target",
+            "title": "Reduction target progress",
+            "message": progress.get("message", "Review your target progress.")
+        })
+
+    return {
+        "status": "ok",
+        "latest_total_kg_co2e": round(latest_total, 3),
+        "latest_calculated_at": latest["calculated_at"],
+        "largest_source": largest_source,
+        "source_breakdown_kg_co2e": {
+            name: round(value, 3) for name, value in sources.items()
+        },
+        "trend": trend,
+        "target": progress,
+        "insights": insights
+    }
+
+
 # -------------------- REDUCTION RECOMMENDATIONS --------------------
 
 @app.post("/recommendations")

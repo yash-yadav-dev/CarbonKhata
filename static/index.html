@@ -211,6 +211,17 @@ input:focus,select:focus,textarea:focus{border-color:#70a780;box-shadow:0 0 0 3p
 </section>
 <div class="footer">CarbonKhata · Carbon intelligence for manufacturing MSMEs · Prototype dashboard</div>
 
+<section id="insightsSection" style="margin:24px 0;padding:24px;border:1px solid #dbe4e0;border-radius:16px;background:#ffffff;">
+  <div style="margin-bottom:18px;">
+    <h2 style="margin:0 0 6px;">Sustainability Insights</h2>
+    <p style="margin:0;color:#64748b;">Understand your emissions, trends, and reduction progress.</p>
+  </div>
+  <div id="insightsSummary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;"></div>
+  <div id="insightsCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:18px;"></div>
+  <p id="insightsMessage" style="color:#64748b;">Loading sustainability insights...</p>
+  <button id="refreshInsights" type="button" style="padding:10px 16px;border:0;border-radius:8px;cursor:pointer;margin-top:8px;">Refresh Insights</button>
+</section>
+
 <section id="trendSection" style="margin:24px 0;padding:24px;border:1px solid #dbe4e0;border-radius:16px;background:#ffffff;">
   <h2 style="margin:0 0 6px;">Emissions Trend</h2>
   <p style="margin:0 0 20px;color:#64748b;">Compare total emissions across your latest saved calculations.</p>
@@ -350,6 +361,7 @@ $("calcForm").addEventListener("submit",async e=>{
  try{
   const d=await api("/calculate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});
   lastCalc={...d,inputs:data,createdAt:new Date().toISOString()};updateDashboard(d);
+      if(typeof loadSustainabilityInsights==="function") loadSustainabilityInsights();
   $("rScope1").textContent=fmt(d.scope_1_kg_co2e)+" kg CO₂e";
   $("rScope2").textContent=fmt(d.scope_2_kg_co2e)+" kg CO₂e";
   $("rTotal").textContent=fmt(d.total_kg_co2e)+" kg CO₂e ("+fmt(d.total_tonnes_co2e)+" tonnes)";
@@ -557,6 +569,130 @@ window.addEventListener("resize", () => {
     .then(result => drawEmissionsTrend(result.history || []))
     .catch(() => {});
 });
+
+
+async function loadSustainabilityInsights() {
+  const summary = $("insightsSummary");
+  const cards = $("insightsCards");
+  const message = $("insightsMessage");
+
+  summary.replaceChildren();
+  cards.replaceChildren();
+  message.textContent = "Loading sustainability insights...";
+
+  try {
+    const data = await api("/insights");
+
+    if (data.status === "no_data") {
+      message.textContent = data.message;
+      return;
+    }
+
+    const fmtInsight = value =>
+      Number(value).toLocaleString("en-IN", { maximumFractionDigits: 2 });
+
+    const addCard = (container, title, value, detail = "") => {
+      const card = document.createElement("div");
+      card.style.cssText =
+        "padding:16px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;";
+
+      const heading = document.createElement("h3");
+      heading.style.cssText = "margin:0 0 10px;font-size:14px;color:#64748b;";
+      heading.textContent = title;
+
+      const strong = document.createElement("div");
+      strong.style.cssText = "font-size:23px;font-weight:700;color:#0f172a;overflow-wrap:anywhere;";
+      strong.textContent = value;
+
+      card.append(heading, strong);
+
+      if (detail) {
+        const description = document.createElement("p");
+        description.style.cssText = "margin:8px 0 0;color:#64748b;font-size:13px;line-height:1.5;";
+        description.textContent = detail;
+        card.appendChild(description);
+      }
+
+      container.appendChild(card);
+    };
+
+    addCard(
+      summary,
+      "Latest emissions",
+      fmtInsight(data.latest_total_kg_co2e) + " kg CO\u2082e",
+      "Most recent saved calculation"
+    );
+
+    addCard(
+      summary,
+      "Largest source",
+      data.largest_source || "Not available",
+      "Biggest contributor in the latest calculation"
+    );
+
+    if (data.trend) {
+      const trend = data.trend;
+      const sign = trend.change_percent > 0 ? "+" : "";
+
+      addCard(
+        summary,
+        "Emissions trend",
+        trend.direction.charAt(0).toUpperCase() + trend.direction.slice(1),
+        `${sign}${fmtInsight(trend.change_percent ?? 0)}% change ? ${trend.comparison_basis}`
+      );
+    } else {
+      addCard(
+        summary,
+        "Emissions trend",
+        "Not enough data",
+        "Complete more calculations to compare emissions."
+      );
+    }
+
+    if (data.target && data.target.configured) {
+      addCard(
+        summary,
+        "Reduction target",
+        fmtInsight(data.target.target_kg_co2e) + " kg CO\u2082e",
+        `${data.target.reduction_percent}% reduction goal ? Deadline ${data.target.deadline}`
+      );
+    } else {
+      addCard(
+        summary,
+        "Reduction target",
+        "Not configured",
+        "Set a baseline and deadline to track progress."
+      );
+    }
+
+    const breakdown = data.source_breakdown_kg_co2e || {};
+    Object.entries(breakdown).forEach(([source, value]) => {
+      addCard(
+        cards,
+        source + " emissions",
+        fmtInsight(value) + " kg CO\u2082e",
+        "Emissions attributed to " + source.toLowerCase()
+      );
+    });
+
+    (data.insights || []).forEach(insight => {
+      addCard(
+        cards,
+        insight.title || "Insight",
+        insight.type === "warning" ? "Attention needed" :
+          insight.type === "positive" ? "Good progress" : "Insight",
+        insight.message || ""
+      );
+    });
+
+    message.textContent = "Insights updated from your saved calculation history.";
+  } catch (error) {
+    message.textContent = "Could not load sustainability insights: " + error.message;
+  }
+}
+
+$("refreshInsights").addEventListener("click", loadSustainabilityInsights);
+loadSustainabilityInsights();
 
 async function loadCalculationHistory() {
   const message = $("historyMessage");
