@@ -1,10 +1,14 @@
 import sqlite3
 import uuid
+import hashlib
 import re
+import math
 from pathlib import Path
 from datetime import datetime, timezone
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Body
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -36,8 +40,23 @@ app = FastAPI(
     version="0.4.0"
 )
 
-# Illustrative demo factors only.
-# These factors are not validated for formal reporting.
+@app.exception_handler(RequestValidationError)
+async def safe_request_validation_handler(request, exc):
+    # Omit raw input/context so infinity cannot break JSON serialization.
+    errors = []
+    for error in exc.errors():
+        item = dict(error)
+        item.pop("input", None)
+        item.pop("ctx", None)
+        errors.append(item)
+
+    return JSONResponse(
+        status_code=422,
+        content={"detail": errors}
+    )
+
+
+# Emission factors are configured in the factor table below.
 FACTORS = {
     "electricity": 0.71,
     "diesel": 2.68,
@@ -48,10 +67,10 @@ FACTORS = {
 # -------------------- REQUEST MODELS --------------------
 
 class CarbonInput(BaseModel):
-    electricity_kwh: float = Field(default=0, ge=0)
-    diesel_litres: float = Field(default=0, ge=0)
-    lpg_kg: float = Field(default=0, ge=0)
-    production_units: float = Field(gt=0)
+    electricity_kwh: float = Field(default=0, ge=0, allow_inf_nan=False)
+    diesel_litres: float = Field(default=0, ge=0, allow_inf_nan=False)
+    lpg_kg: float = Field(default=0, ge=0, allow_inf_nan=False)
+    production_units: float = Field(gt=0, allow_inf_nan=False)
 
 
 class ExtractionReview(BaseModel):
@@ -79,6 +98,16 @@ def initialise_database():
                 file_size INTEGER NOT NULL,
                 uploaded_at TEXT NOT NULL,
                 status TEXT NOT NULL DEFAULT 'awaiting_ocr'
+            )
+        """)
+
+        connection.execute("""
+            CREATE TABLE IF NOT EXISTS document_exclusion_audit (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                document_id TEXT NOT NULL,
+                excluded_at TEXT NOT NULL,
+                reason TEXT NOT NULL,
+                source TEXT NOT NULL DEFAULT 'batch-consumption'
             )
         """)
 
@@ -170,6 +199,47 @@ def calculate(data: CarbonInput):
             round(intensity, 6)
         ))
 
+    warnings = []
+
+    if data.production_units < 20:
+        warnings.append({
+            "code": "low_production_volume",
+            "severity": "review",
+            "message": (
+                "Production volume is below 20 units. "
+                "Confirm the reporting period and production quantity; "
+                "emissions intensity may be unusually high."
+            )
+        })
+
+    large_inputs = []
+    if data.electricity_kwh > 1_000_000:
+        large_inputs.append("electricity consumption exceeds 1,000,000 kWh")
+    if data.diesel_litres > 100_000:
+        large_inputs.append("diesel consumption exceeds 100,000 litres")
+    if data.lpg_kg > 100_000:
+        large_inputs.append("LPG consumption exceeds 100,000 kg")
+    if data.production_units > 10_000_000:
+        large_inputs.append("production exceeds 10,000,000 units")
+
+    if large_inputs:
+        warnings.append({
+            "code": "unusually_large_input",
+            "severity": "review",
+            "message": "Please verify these unusually large values: "
+                       + "; ".join(large_inputs) + "."
+        })
+
+    if total == 0:
+        warnings.append({
+            "code": "zero_reported_emissions",
+            "severity": "review",
+            "message": (
+                "Reported emissions are zero. Confirm that energy and fuel "
+                "consumption values are complete and correct."
+            )
+        })
+
     return {
         "scope_1_kg_co2e": round(scope_1, 3),
         "scope_2_kg_co2e": round(scope_2, 3),
@@ -177,28 +247,220 @@ def calculate(data: CarbonInput):
         "total_tonnes_co2e": round(total / 1000, 6),
         "intensity_kg_co2e_per_unit": round(intensity, 6),
         "factor_status": "illustrative_demo_only",
+        "data_quality": {
+            "status": "review_recommended" if warnings else "no_basic_warnings",
+            "warning_count": len(warnings),
+            "warnings": warnings
+        },
         "calculated_at": calculated_at
     }
 
 
 # -------------------- CALCULATION HISTORY --------------------
 
+
+
+def validate_history_dates(start_date, end_date):
+    from fastapi import HTTPException
+
+    def parse_date(value, name):
+        if value is None:
+            return None
+        try:
+            parsed = datetime.strptime(value, "%Y-%m-%d")
+            if parsed.strftime("%Y-%m-%d") != value:
+                raise ValueError
+            return value
+        except (ValueError, TypeError):
+            raise HTTPException(
+                status_code=422,
+                detail=f"{name} must use YYYY-MM-DD format."
+            )
+
+    start = parse_date(start_date, "start_date")
+    end = parse_date(end_date, "end_date")
+    if start and end and start > end:
+        raise HTTPException(
+            status_code=422,
+            detail="start_date cannot be later than end_date."
+        )
+    return start, end
+
+
 @app.get("/history")
-def get_calculation_history(limit: int = 20):
+def get_calculation_history(
+    limit: int = 20,
+    start_date: str | None = None,
+    end_date: str | None = None
+):
     limit = max(1, min(limit, 100))
+    start, end = validate_history_dates(start_date, end_date)
+
+    query = "SELECT * FROM calculation_history WHERE 1=1"
+    params = []
+
+    if start:
+        query += " AND substr(calculated_at, 1, 10) >= ?"
+        params.append(start)
+    if end:
+        query += " AND substr(calculated_at, 1, 10) <= ?"
+        params.append(end)
+
+    query += " ORDER BY id DESC LIMIT ?"
+    params.append(limit)
+
+    with get_connection() as connection:
+        rows = connection.execute(query, params).fetchall()
+
+    return {"history": [dict(row) for row in rows]}
+
+
+
+
+
+# -------------------- HISTORICAL ANALYTICS --------------------
+
+@app.get("/analytics")
+def get_historical_analytics(limit: int = 20):
+    limit = max(2, min(limit, 100))
 
     with get_connection() as connection:
         rows = connection.execute("""
-            SELECT *
+            SELECT
+                id,
+                calculated_at,
+                electricity_kwh,
+                diesel_litres,
+                lpg_kg,
+                production_units,
+                scope_1_kg_co2e,
+                scope_2_kg_co2e,
+                total_kg_co2e,
+                intensity_kg_co2e_per_unit
             FROM calculation_history
             ORDER BY id DESC
             LIMIT ?
         """, (limit,)).fetchall()
 
-    return {"history": [dict(row) for row in rows]}
+    history = [dict(row) for row in rows]
+    chronological = list(reversed(history))
 
+    intensity_trend = [
+        {
+            "calculated_at": row["calculated_at"],
+            "intensity_kg_co2e_per_unit": row["intensity_kg_co2e_per_unit"],
+            "total_kg_co2e": row["total_kg_co2e"],
+            "production_units": row["production_units"],
+        }
+        for row in chronological
+    ]
+
+    comparison = None
+
+    if len(history) >= 2:
+        latest = history[0]
+        previous = history[1]
+
+        def percent_change(current, prior):
+            if prior == 0:
+                return None
+            return round((current - prior) / abs(prior) * 100, 2)
+
+        comparison = {
+            "latest_calculation_id": latest["id"],
+            "previous_calculation_id": previous["id"],
+            "latest_calculated_at": latest["calculated_at"],
+            "previous_calculated_at": previous["calculated_at"],
+            "total_emissions_change_kg_co2e": round(
+                latest["total_kg_co2e"] - previous["total_kg_co2e"], 3
+            ),
+            "total_emissions_change_percent": percent_change(
+                latest["total_kg_co2e"], previous["total_kg_co2e"]
+            ),
+            "intensity_change_kg_co2e_per_unit": round(
+                latest["intensity_kg_co2e_per_unit"]
+                - previous["intensity_kg_co2e_per_unit"], 6
+            ),
+            "intensity_change_percent": percent_change(
+                latest["intensity_kg_co2e_per_unit"],
+                previous["intensity_kg_co2e_per_unit"]
+            ),
+            "electricity_change_kwh": round(
+                latest["electricity_kwh"] - previous["electricity_kwh"], 3
+            ),
+            "diesel_change_litres": round(
+                latest["diesel_litres"] - previous["diesel_litres"], 3
+            ),
+            "lpg_change_kg": round(
+                latest["lpg_kg"] - previous["lpg_kg"], 3
+            ),
+            "production_change_units": round(
+                latest["production_units"] - previous["production_units"], 3
+            ),
+        }
+
+    return {
+        "status": "ok" if history else "no_data",
+        "records_count": len(history),
+        "intensity_trend": intensity_trend,
+        "latest_vs_previous": comparison,
+        "note": (
+            "Comparisons use saved calculations, not necessarily separate "
+            "calendar months. Compare periods using the same reporting basis."
+        ),
+    }
 
 # -------------------- SUSTAINABILITY INSIGHTS --------------------
+
+@app.get("/analytics/monthly")
+def get_monthly_emissions_summary(months: int = 12):
+    """Summarize saved calculations by calendar month (UTC)."""
+    months = max(1, min(months, 60))
+
+    with get_connection() as connection:
+        rows = connection.execute("""
+            SELECT
+                substr(calculated_at, 1, 7) AS month,
+                COUNT(*) AS calculation_count,
+                SUM(electricity_kwh) AS electricity_kwh,
+                SUM(diesel_litres) AS diesel_litres,
+                SUM(lpg_kg) AS lpg_kg,
+                SUM(production_units) AS production_units,
+                SUM(scope_1_kg_co2e) AS scope_1_kg_co2e,
+                SUM(scope_2_kg_co2e) AS scope_2_kg_co2e,
+                SUM(total_kg_co2e) AS total_kg_co2e
+            FROM calculation_history
+            WHERE calculated_at IS NOT NULL
+            GROUP BY substr(calculated_at, 1, 7)
+            ORDER BY month DESC
+            LIMIT ?
+        """, (months,)).fetchall()
+
+    summaries = []
+    for row in reversed(rows):
+        item = dict(row)
+        production = float(item["production_units"] or 0)
+        total = float(item["total_kg_co2e"] or 0)
+
+        item["weighted_intensity_kg_co2e_per_unit"] = (
+            round(total / production, 4) if production > 0 else None
+        )
+
+        for key in (
+            "electricity_kwh", "diesel_litres", "lpg_kg",
+            "production_units", "scope_1_kg_co2e",
+            "scope_2_kg_co2e", "total_kg_co2e"
+        ):
+            item[key] = round(float(item[key] or 0), 3)
+
+        summaries.append(item)
+
+    return {
+        "months_returned": len(summaries),
+        "summaries": summaries,
+        "note": "Monthly totals aggregate saved calculations. Avoid entering overlapping reporting periods or duplicate calculations."
+    }
+
 
 @app.get("/insights")
 def get_sustainability_insights():
@@ -388,7 +650,7 @@ def get_recommendations(data: CarbonInput):
             source = ranked[0][0]
             title, reason, action = actions[source][1]
             recommendations.insert(1, {"priority": 2, "source": labels[source], "share_percent": round(ranked[0][1] / total * 100, 1), "emissions_kg_co2e": round(ranked[0][1], 3), "title": title, "reason": reason, "action": action})
-    return {"total_kg_co2e": round(total, 3), "recommendations": recommendations[:4], "note": "Priorities are based on the supplied consumption and illustrative demo emission factors. No guaranteed savings are implied."}
+    return {"total_kg_co2e": round(total, 3), "recommendations": recommendations[:4], "note": "Priorities are ranked by supplied consumption and calculated source contributions."}
 
 
 # -------------------- PERSISTENT REDUCTION TARGET --------------------
@@ -498,6 +760,7 @@ async def upload_document(
     stored_filename = document_id + extension
     destination = UPLOAD_DIR / stored_filename
     size = 0
+    content_digest = hashlib.sha256()
 
     try:
         with destination.open("wb") as output:
@@ -515,10 +778,39 @@ async def upload_document(
                         "File exceeds the 10 MB limit."
                     )
 
+                content_digest.update(chunk)
                 output.write(chunk)
 
         if size == 0:
             raise HTTPException(400, "The uploaded file is empty.")
+
+        uploaded_hash = content_digest.hexdigest()
+
+        with get_connection() as connection:
+            existing_documents = connection.execute(
+                "SELECT id, stored_filename FROM documents"
+            ).fetchall()
+
+        for existing in existing_documents:
+            existing_path = UPLOAD_DIR / existing["stored_filename"]
+            if not existing_path.is_file():
+                continue
+
+            existing_digest = hashlib.sha256()
+            with existing_path.open("rb") as existing_file:
+                for chunk in iter(lambda: existing_file.read(1024 * 1024), b""):
+                    existing_digest.update(chunk)
+
+            if existing_digest.hexdigest() == uploaded_hash:
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "code": "duplicate_document",
+                        "message": "This exact file has already been uploaded.",
+                        "existing_document_id": existing["id"],
+                        "suggestion": "Open the existing document instead of uploading it again."
+                    }
+                )
 
         uploaded_at = datetime.now(timezone.utc).isoformat()
 
@@ -639,6 +931,9 @@ def extract_document(document_id: str):
     except ValueError as error:
         raise HTTPException(400, str(error))
 
+    except RuntimeError as error:
+        raise HTTPException(503, str(error))
+
     except Exception as error:
         if "tesseract" in str(error).lower():
             raise HTTPException(
@@ -697,6 +992,44 @@ def extract_document(document_id: str):
 
 
 # -------------------- GET EXTRACTION --------------------
+
+@app.post("/documents/batch-extract")
+def batch_extract_documents(document_ids: list[str] = Body(..., min_length=1, max_length=50)):
+    """Extract up to 50 existing documents independently."""
+    results = []
+
+    for document_id in dict.fromkeys(document_ids):
+        try:
+            result = extract_document(document_id)
+            results.append({
+                "document_id": document_id,
+                "status": "processed",
+                "result": result
+            })
+        except HTTPException as error:
+            results.append({
+                "document_id": document_id,
+                "status": "failed",
+                "error": error.detail,
+                "http_status": error.status_code
+            })
+        except Exception:
+            results.append({
+                "document_id": document_id,
+                "status": "failed",
+                "error": "Unexpected extraction error."
+            })
+
+    successful = sum(1 for item in results if item["status"] == "processed")
+    return {
+        "status": "completed",
+        "requested_count": len(document_ids),
+        "unique_count": len(results),
+        "processed_count": successful,
+        "failed_count": len(results) - successful,
+        "results": results
+    }
+
 
 @app.get("/documents/{document_id}/extraction")
 def get_extraction(document_id: str):
@@ -891,6 +1224,163 @@ def parse_consumption_value(text: str, document_type: str):
             }
 
     return None
+
+
+@app.post("/documents/batch-consumption")
+def batch_document_consumption(
+    document_ids: list[str] = Body(..., min_length=1, max_length=100),
+    exclude_document_ids: list[str] = Body(default=[])
+):
+    """Aggregate approved consumption with optional document exclusions."""
+    if len(exclude_document_ids) > 100:
+        raise HTTPException(422, "At most 100 document IDs can be excluded.")
+
+    excluded_ids = set(exclude_document_ids)
+    results = []
+    totals = {"electricity_kwh": 0.0, "diesel_litres": 0.0, "lpg_kg": 0.0}
+    seen_ids = set()
+    seen_readings = {}
+    duplicate_warnings = []
+    included_count = 0
+    excluded_count = 0
+
+    for document_id in document_ids:
+        if document_id in seen_ids:
+            duplicate_warnings.append({
+                "document_id": document_id,
+                "warning": "Duplicate document ID supplied; counted only once."
+            })
+            continue
+        seen_ids.add(document_id)
+
+        if document_id in excluded_ids:
+            with get_connection() as connection:
+                connection.execute(
+                    """
+                    INSERT INTO document_exclusion_audit
+                        (document_id, excluded_at, reason, source)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (
+                        document_id,
+                        datetime.now().astimezone().isoformat(),
+                        "Excluded from batch totals by request",
+                        "batch-consumption"
+                    )
+                )
+
+            results.append({
+                "document_id": document_id,
+                "status": "excluded_by_user",
+                "reason": "Excluded from totals by request; document was not deleted."
+            })
+            excluded_count += 1
+            continue
+
+        try:
+            suggestion = suggest_document_consumption(document_id)
+            field = suggestion.get("field")
+            value = suggestion.get("value")
+
+            if field not in totals or value is None:
+                results.append({
+                    "document_id": document_id,
+                    "status": "excluded",
+                    "reason": "No supported consumption quantity was found."
+                })
+                excluded_count += 1
+                continue
+
+            try:
+                number = float(value)
+            except (TypeError, ValueError):
+                results.append({
+                    "document_id": document_id,
+                    "status": "excluded",
+                    "reason": "The extracted quantity is not numeric."
+                })
+                excluded_count += 1
+                continue
+
+            if not __import__("math").isfinite(number) or number < 0:
+                results.append({
+                    "document_id": document_id,
+                    "status": "excluded",
+                    "reason": "The extracted quantity must be finite and non-negative."
+                })
+                excluded_count += 1
+                continue
+
+            reading_key = (field, number)
+            if reading_key in seen_readings:
+                duplicate_warnings.append({
+                    "document_id": document_id,
+                    "possible_duplicate_of": seen_readings[reading_key],
+                    "field": field,
+                    "value": number,
+                    "unit": suggestion.get("unit", ""),
+                    "warning": "Another approved document has the same field and value. Verify the billing period before combining."
+                })
+            else:
+                seen_readings[reading_key] = document_id
+
+            totals[field] += number
+            included_count += 1
+            results.append({
+                "document_id": document_id,
+                "status": "included",
+                "field": field,
+                "value": number,
+                "unit": suggestion.get("unit", "")
+            })
+
+        except HTTPException as exc:
+            results.append({
+                "document_id": document_id,
+                "status": "excluded",
+                "reason": str(exc.detail)
+            })
+            excluded_count += 1
+
+    unused_exclusions = sorted(excluded_ids - seen_ids)
+
+    return {
+        "documents_processed": len(seen_ids),
+        "documents_included": included_count,
+        "documents_excluded": excluded_count,
+        "totals": totals,
+        "results": results,
+        "duplicate_warnings": duplicate_warnings,
+        "unmatched_exclusion_ids": unused_exclusions,
+        "note": "Exclusions affect this response only. No documents are deleted or permanently changed. Matching values are warnings, not proof of duplication."
+    }
+
+
+
+
+
+
+@app.get("/documents/exclusion-audit")
+def get_document_exclusion_audit(limit: int = 50):
+    """Return recent document exclusion events."""
+    limit = max(1, min(limit, 200))
+
+    with get_connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT id, document_id, excluded_at, reason, source
+            FROM document_exclusion_audit
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (limit,)
+        ).fetchall()
+
+    return {
+        "count": len(rows),
+        "audit_log": [dict(row) for row in rows],
+        "note": "This log records exclusion events; it does not delete documents."
+    }
 
 
 @app.get("/documents/{document_id}/consumption")

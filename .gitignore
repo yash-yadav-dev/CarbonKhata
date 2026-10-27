@@ -236,3 +236,17 @@ uploads/
 reports/
 *.db
 *.sqlite3
+
+# CarbonKhata local backups and demo artifacts
+backups/
+*.bak
+*.backup-*
+*.before-*
+*.csv
+demo_bills_to_upload/
+sample_electricity_bill.pdf
+reset_carbonkhata_demo.py
+update_carbonkhata_full_demo.py
+
+# Local HTML backups
+static/index.backup.html
